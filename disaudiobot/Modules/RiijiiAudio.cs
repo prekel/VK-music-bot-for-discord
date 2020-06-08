@@ -1,15 +1,16 @@
-﻿using Discord;
-using Discord.Audio;
-using Discord.Commands;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+
+using Discord;
+using Discord.Audio;
+using Discord.Commands;
+
+using VkNet.Enums.Filters;
 using VkNet.Model;
 using VkNet.Model.Attachments;
 
@@ -17,11 +18,11 @@ namespace disaudiobot.Modules
 {
     public class RiijiiAudio : ModuleBase<SocketCommandContext>
     {
-        BinaryFormatter formatter = new BinaryFormatter();
+        private readonly BinaryFormatter formatter = new BinaryFormatter();
 
 
         /// <summary>
-        /// Uploading playlist in memory
+        ///     Uploading playlist in memory
         /// </summary>
         /// <param name="ownerid"></param>
         /// <returns></returns>
@@ -32,9 +33,11 @@ namespace disaudiobot.Modules
 
             await VKMusic.GetPlaylistInFile(Program._vkApi, ownerid, Context.Guild.Id);
 
-            using (FileStream fs = new FileStream($@"{Directory.GetCurrentDirectory()}\servers\{Context.Guild.Id}\{ownerid}.dat", FileMode.OpenOrCreate, FileAccess.Read))
+            using (var fs =
+                new FileStream($@"{Directory.GetCurrentDirectory()}\servers\{Context.Guild.Id}\{ownerid}.dat",
+                    FileMode.OpenOrCreate, FileAccess.Read))
             {
-                Program._data.StoreObject($"{Context.Guild.Id}_{ownerid}.dat", (Audio[])formatter.Deserialize(fs));
+                Program._data.StoreObject($"{Context.Guild.Id}_{ownerid}.dat", (Audio[]) formatter.Deserialize(fs));
             }
 
             await Context.Channel.SendMessageAsync("Playlist downloaded successful");
@@ -42,7 +45,7 @@ namespace disaudiobot.Modules
         }
 
         /// <summary>
-        /// Uploading playlist with file
+        ///     Uploading playlist with file
         /// </summary>
         /// <param name="ownerid">VK user id</param>
         /// <returns></returns>
@@ -58,7 +61,9 @@ namespace disaudiobot.Modules
                 return;
             }
 
-            using (FileStream fs = new FileStream($@"{Directory.GetCurrentDirectory()}\servers\{Context.Guild.Id}\{ownerid}.dat", FileMode.OpenOrCreate, FileAccess.Read))
+            using (var fs =
+                new FileStream($@"{Directory.GetCurrentDirectory()}\servers\{Context.Guild.Id}\{ownerid}.dat",
+                    FileMode.OpenOrCreate, FileAccess.Read))
             {
                 if (fs.Length == 0)
                 {
@@ -67,10 +72,10 @@ namespace disaudiobot.Modules
                     return;
                 }
 
-                Program._data.StoreObject($"{Context.Guild.Id}_{ownerid}.dat", (Audio[])formatter.Deserialize(fs));
+                Program._data.StoreObject($"{Context.Guild.Id}_{ownerid}.dat", (Audio[]) formatter.Deserialize(fs));
             }
-            await Task.CompletedTask;
 
+            await Task.CompletedTask;
         }
 
         [Command("play", RunMode = RunMode.Async)]
@@ -84,7 +89,9 @@ namespace disaudiobot.Modules
                 await UploadPlaylist(ownerid);
             }
             else
+            {
                 await UploadPlaylistSilent(ownerid);
+            }
 
             audio = Program._data.RestoreObject<Audio[]>($"{Context.Guild.Id}_{ownerid}.dat");
 
@@ -95,9 +102,9 @@ namespace disaudiobot.Modules
             await JoinChannel();
 
             var msg = Context.Channel.SendMessageAsync("", false, new EmbedBuilder().Build());
-            IAudioClient client = Program._data.RestoreObject<IAudioClient>($"{channelId}");
+            var client = Program._data.RestoreObject<IAudioClient>($"{channelId}");
             Program._data.StoreObject($"{Context.Guild.Id}.aos", client.CreatePCMStream(AudioApplication.Music));
-            for (int i = startindex; i < audio.Length; ++i)
+            for (var i = startindex; i < audio.Length; ++i)
             {
                 if (audio[i].ContentRestricted != null)
                 {
@@ -105,18 +112,22 @@ namespace disaudiobot.Modules
                     continue;
                 }
 
-                CancellationTokenSource tokenSource = new CancellationTokenSource();
+                var tokenSource = new CancellationTokenSource();
                 Program._data.StoreObject($"{Context.Guild.Id}.cts", tokenSource);
                 VKMusic.DownloadSongs(audio[i], path).Wait();
                 try
                 {
-                    var vkuser = Program._vkApi.Users.Get(new long[] { ownerid }, VkNet.Enums.Filters.ProfileFields.Photo200).FirstOrDefault();
+                    var vkuser = Program._vkApi.Users.Get(new long[] {ownerid}, ProfileFields.Photo200)
+                        .FirstOrDefault();
 
-                    Task counter = SongCounter(msg.Result, audio[i], vkuser, i, tokenSource.Token);
-                    Task sending = SendAsync(path);
-                    await Task.WhenAny(new Task[] { sending, counter });
+                    var counter = SongCounter(msg.Result, audio[i], vkuser, i, tokenSource.Token);
+                    var sending = SendAsync(path);
+                    await Task.WhenAny(sending, counter);
                     if (tokenSource.IsCancellationRequested)
+                    {
                         break;
+                    }
+
                     tokenSource.Cancel();
                     Console.WriteLine(new LogMessage(LogSeverity.Info, "BOT", "Token cancelled"));
                 }
@@ -125,38 +136,47 @@ namespace disaudiobot.Modules
                     await Context.Channel.SendMessageAsync(e.Message);
                 }
             }
-
         }
 
-        public async Task SongCounter(IUserMessage msg, Audio audio, User vkuser, int songnumber, CancellationToken token)
+        public async Task SongCounter(IUserMessage msg, Audio audio, User vkuser, int songnumber,
+            CancellationToken token)
         {
-            Stopwatch clock = new Stopwatch();
+            var clock = new Stopwatch();
             clock.Start();
 
-            int seconds = audio.Duration / Utils._cfg.StarsCount;
+            var seconds = audio.Duration / Utils._cfg.StarsCount;
 
-            string msgToServer = "";
-            EmbedBuilder embed = new EmbedBuilder();
+            var msgToServer = "";
+            var embed = new EmbedBuilder();
             embed.WithColor(Utils._cfg.Color);
-            embed.WithAuthor($"{vkuser.FirstName} {vkuser.LastName}", vkuser.Photo200.AbsoluteUri, ("https://vk.com/id" + vkuser.Id));
+            embed.WithAuthor($"{vkuser.FirstName} {vkuser.LastName}", vkuser.Photo200.AbsoluteUri,
+                "https://vk.com/id" + vkuser.Id);
 
             while (token.IsCancellationRequested == false)
             {
                 msgToServer = "";
 
-                msgToServer += $"**Current song:** {audio.Title}\n**Author:** {audio.Artist}\n**Duration:** {audio.Duration}s\n**Number:** {songnumber}\n";
+                msgToServer +=
+                    $"**Current song:** {audio.Title}\n**Author:** {audio.Artist}\n**Duration:** {audio.Duration}s\n**Number:** {songnumber}\n";
 
-                int stars = (int)(clock.ElapsedMilliseconds / (seconds * 1000));
+                var stars = (int) (clock.ElapsedMilliseconds / (seconds * 1000));
 
-                for (int i = 0; i < stars; ++i)
+                for (var i = 0; i < stars; ++i)
+                {
                     msgToServer += "🔹";
+                }
 
-                for (int i = 0; i < Utils._cfg.StarsCount - stars; ++i)
+                for (var i = 0; i < Utils._cfg.StarsCount - stars; ++i)
+                {
                     msgToServer += "🔸";
+                }
 
                 embed.WithDescription(msgToServer);
                 if (msg.Embeds.FirstOrDefault().ToEmbedBuilder().Description != embed.Description)
+                {
                     await msg.ModifyAsync(x => x.Embed = embed.Build());
+                }
+
                 Thread.Sleep(2000);
             }
 
@@ -166,7 +186,7 @@ namespace disaudiobot.Modules
         [Command("getplaylist", RunMode = RunMode.Async)]
         public async Task GetPlaylist(int ownerid, int numberlist = 0)
         {
-            EmbedBuilder embed = new EmbedBuilder();
+            var embed = new EmbedBuilder();
             embed.WithColor(Utils._cfg.ColorValue);
             await UploadPlaylistSilent(ownerid);
             Audio[] audio = null;
@@ -180,23 +200,25 @@ namespace disaudiobot.Modules
                 return;
             }
 
-            string msg = "";
-            for (int i = numberlist * Utils._cfg.GetPlaylistCount; i <= Utils._cfg.GetPlaylistCount * (numberlist + 1) && i < audio.Length; ++i)
+            var msg = "";
+            for (var i = numberlist * Utils._cfg.GetPlaylistCount;
+                i <= Utils._cfg.GetPlaylistCount * (numberlist + 1) && i < audio.Length;
+                ++i)
             {
                 msg += $"{i} | {audio[i].Artist} - {audio[i].Title}\n";
             }
+
             embed.WithDescription(msg);
 
             await Context.Channel.SendMessageAsync("", false, embed.Build());
-
         }
 
         [Command("stop", RunMode = RunMode.Async)]
         public async Task StopMusic(IVoiceChannel channel = null, bool canceltoken = true)
         {
-            if (canceltoken == true)
+            if (canceltoken)
             {
-                CancellationTokenSource token = Program._data.RestoreObject<CancellationTokenSource>($"{Context.Guild.Id}.cts");
+                var token = Program._data.RestoreObject<CancellationTokenSource>($"{Context.Guild.Id}.cts");
                 token.Cancel();
             }
 
@@ -209,7 +231,12 @@ namespace disaudiobot.Modules
         {
             // Get the audio channel
             channel = channel ?? (Context.User as IGuildUser)?.VoiceChannel;
-            if (channel == null) { await Context.Channel.SendMessageAsync("User must be in a voice channel, or a voice channel must be passed as an argument."); return; }
+            if (channel == null)
+            {
+                await Context.Channel.SendMessageAsync(
+                    "User must be in a voice channel, or a voice channel must be passed as an argument.");
+                return;
+            }
 
             // For the next step with transmitting audio, you would want to pass this Audio Client in to a service.
             var audioClient = await channel.ConnectAsync();
@@ -222,22 +249,18 @@ namespace disaudiobot.Modules
         }
 
 
-
-        private Process CreateStream(string path)
-        {
-            return Process.Start(new ProcessStartInfo
+        private Process CreateStream(string path) =>
+            Process.Start(new ProcessStartInfo
             {
                 FileName = "ffmpeg",
                 Arguments = $"-hide_banner -loglevel panic -i \"{path}\" -ac 2 -f s16le -ar 48000 -b 96 pipe:1",
                 UseShellExecute = false,
-                RedirectStandardOutput = true,
-
+                RedirectStandardOutput = true
             });
-        }
 
         private async Task SendAsync(string path)
         {
-            AudioOutStream discord = Program._data.RestoreObject<AudioOutStream>($"{Context.Guild.Id}.aos");
+            var discord = Program._data.RestoreObject<AudioOutStream>($"{Context.Guild.Id}.aos");
 
             using (var ffmpeg = CreateStream(path))
             using (var output = ffmpeg.StandardOutput.BaseStream)
@@ -245,15 +268,13 @@ namespace disaudiobot.Modules
                 try
                 {
                     await output.CopyToAsync(discord);
-
                 }
                 finally
                 {
                     await discord.FlushAsync();
-
                 }
-
             }
+
             await Task.CompletedTask;
         }
     }
