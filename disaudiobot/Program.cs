@@ -13,6 +13,7 @@ using VkNet.Model.Attachments;
 using Newtonsoft.Json;
 using System.IO;
 using System.Runtime.Serialization.Json;
+using System.Text;
 
 namespace disaudiobot
 {
@@ -29,6 +30,9 @@ namespace disaudiobot
 
         public async Task MainAsync()
         {
+            Console.InputEncoding = Encoding.UTF8;
+            Console.OutputEncoding = Encoding.UTF8;
+            
             _client = new DiscordSocketClient(new DiscordSocketConfig
             {
                 LogLevel = LogSeverity.Verbose
