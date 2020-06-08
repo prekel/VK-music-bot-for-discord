@@ -1,39 +1,37 @@
-﻿using System;
+﻿using Discord;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace disaudiobot.Modules
 {
-    internal class Utils
+    class Utils
     {
         public static Config _cfg;
-
         /// <summary>
-        ///     Fixing an URL if its corrupted
+        /// Fixing an URL if its corrupted
         /// </summary>
         /// <param name="url">Corrupted URL</param>
         /// <returns></returns>
         public static Uri FixUrl(Uri url)
         {
-            var uri = url.AbsoluteUri;
+            string uri = url.AbsoluteUri;
 
             uri = uri.Replace("/index.m3u8", ".mp3");
 
-            var fi = 0;
-            var li = 0;
+            int fi = 0;
+            int li = 0;
 
-            var count = 0;
+            int count = 0;
 
-            for (var i = 0; i < uri.Length; ++i)
+            for (int i = 0; i < uri.Length; ++i)
             {
                 if (uri[i] == '/')
-                {
                     ++count;
-                }
-
                 if (count == 4 && fi == 0)
-                {
                     fi = i;
-                }
-
                 if (count == 5)
                 {
                     li = i;
@@ -44,5 +42,7 @@ namespace disaudiobot.Modules
             uri = uri.Remove(fi, li - fi);
             return new Uri(uri);
         }
+
+
     }
 }
